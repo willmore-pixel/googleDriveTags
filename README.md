@@ -5,7 +5,7 @@ Tag your Google Drive files and find them in seconds, on your phone or computer.
 Drive Tags is a small Google Apps Script web app. You add tags like `vintage`, `gucci` or `dress` to files in your Google Drive, group tags into categories, and search by any combination of tags. It was made for a sewing community to organise patterns, fabric photos and garment references, but it works for any kind of file.
 
 <!-- Add a screenshot: save it in the repo as screenshot.png and remove the comment marks below -->
-<!-- ![Drive Tags screenshot](screenshot.png) -->
+[Drive Tags screenshot](screenshot.png)
 
 ## Features
 
