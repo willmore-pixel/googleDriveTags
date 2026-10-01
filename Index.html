@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E9EEF3; --panel: #FFFFFF; --ink: #1C2A38; --muted: #5C6B7A;
+    --line: #D3DCE5; --accent: #24558F; --accent-ink: #FFFFFF;
+    --tag-l: 90%; --tag-s: 62%; --tag-fl: 26%; --tag-fs: 50%;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141B22; --panel: #1D2630; --ink: #E4EAF0; --muted: #93A2B1;
+      --line: #2E3A46; --accent: #7FB0E8; --accent-ink: #0E1822;
+      --tag-l: 27%; --tag-s: 35%; --tag-fl: 86%; --tag-fs: 70%;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 16px/1.45 Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 96px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 16px; }
+  .top h1 { margin: 0; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; border: 0; flex: none;
+    background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 1.05rem;
+  }
+  .welcome { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .welcome h2 { font-size: 1.05rem; margin: 0 0 6px; }
+  .welcome p { margin: 0 0 8px; color: var(--muted); font-size: .92rem; }
+  .welcome strong { color: var(--ink); }
+  .acct-email { margin: 0 0 8px; overflow-wrap: anywhere; }
+  .acct-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+  .btn { display: inline-block; text-decoration: none; border-radius: 10px; padding: 10px 16px; font-weight: 600; border: 1px solid var(--line); color: var(--ink); background: var(--panel); }
+  .btn.danger { color: #B3261E; border-color: #E6B8B4; }
+  @media (prefers-color-scheme: dark) { .btn.danger { color: #F2B8B5; border-color: #6B3531; } }
+  h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; margin: 4px 0 16px; }
+  button { font: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .tabs { display: flex; gap: 4px; background: var(--line); padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+  .tabs button {
+    flex: 1; border: 0; background: transparent; color: var(--muted);
+    padding: 9px; border-radius: 9px; font-weight: 600;
+  }
+  .tabs button[aria-selected="true"] { background: var(--panel); color: var(--ink); }
+
+  input[type="search"], input[type="text"] {
+    width: 100%; font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  }
+  .status { color: var(--muted); font-size: .9rem; margin: 12px 2px; }
+
+  /* The tag: shaped like a paper luggage tag */
+  .tag {
+    --h: 210;
+    display: inline-flex; align-items: center; gap: .35em;
+    font-size: .82rem; font-weight: 600; line-height: 1;
+    padding: .42em .75em .42em 1.15em; border: 0; position: relative;
+    background: hsl(var(--h) var(--tag-s) var(--tag-l));
+    color: hsl(var(--h) var(--tag-fs) var(--tag-fl));
+    clip-path: polygon(.55em 0, 100% 0, 100% 100%, .55em 100%, 0 50%);
+    border-radius: 0 .35em .35em 0;
+  }
+  .tag::before {
+    content: ""; position: absolute; left: .5em; top: 50%;
+    width: .3em; height: .3em; border-radius: 50%;
+    background: var(--panel); transform: translateY(-50%);
+  }
+  .tag .x { font-size: 1rem; opacity: .7; margin-left: .1em; }
+
+  .files { list-style: none; margin: 0; padding: 0; }
+  .file { background: var(--panel); border-bottom: 1px solid var(--line); padding: 14px; display: flex; gap: 14px; align-items: flex-start; }
+  .thumb {
+    flex: none; width: 116px; aspect-ratio: 1; position: relative; overflow: hidden;
+    border-radius: 10px; background: var(--bg); border: 1px solid var(--line);
+    display: grid; place-items: center;
+  }
+  @media (min-width: 560px) { .thumb { width: 160px; } }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; background: var(--panel); }
+  .thumb-fallback { font-size: .8rem; font-weight: 700; color: var(--muted); }
+  .file-body { flex: 1; min-width: 0; }
+  .meta { color: var(--muted); font-size: .8rem; margin-top: 3px; }
+  .file:first-child { border-radius: 12px 12px 0 0; }
+  .file:last-child { border-radius: 0 0 12px 12px; border-bottom: 0; }
+  .file:only-child { border-radius: 12px; }
+  .name { color: var(--ink); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; display: block; }
+  .name:hover { text-decoration: underline; }
+  .date { color: var(--muted); font-size: .8rem; flex: none; }
+  .file-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+  .edit { border: 1px dashed var(--line); background: none; color: var(--accent); font-size: .8rem; font-weight: 600; padding: .35em .7em; border-radius: 7px; }
+
+  .filter { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: .9rem; }
+  .link { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 4px; }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tag-row { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 8px 8px; color: var(--muted); font-size: .85rem; }
+
+  .tag-row[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--ink); }
+  .filter { flex-wrap: wrap; }
+  .tag-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; gap: 12px; align-items: center;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0)); background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .primary-btn { border: 0; border-radius: 10px; padding: 11px 18px; font-weight: 600; background: var(--accent); color: var(--accent-ink); }
+  .group { margin-bottom: 20px; }
+  .group h3 { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .group-empty { color: var(--muted); font-size: .85rem; }
+  .tags-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  select {
+    font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; max-width: 45%;
+  }
+  .sub { font-size: .75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; width: 100%; }
+  .cat-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cat-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 12px; font-weight: 600; font-size: .88rem; }
+  .cat-chip button { border: 0; background: none; color: var(--muted); font-size: 1rem; line-height: 1; padding: 2px 4px; }
+  .assign { display: flex; flex-direction: column; gap: 8px; }
+  .assign-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  #scrim { position: fixed; inset: 0; background: rgba(10, 20, 30, .45); }
+  #sheet, #account-sheet, #cat-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
+    background: var(--panel); border-radius: 18px 18px 0 0; padding: 20px 16px calc(16px + env(safe-area-inset-bottom, 0));
+    max-height: 85vh; overflow-y: auto; animation: rise .18s ease-out;
+  }
+  @keyframes rise { from { transform: translateY(24px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #sheet, #account-sheet, #cat-sheet { animation: none; } }
+  #sheet h2, #account-sheet h2, #cat-sheet h2 { font-size: 1.05rem; margin: 0 0 14px; overflow-wrap: anywhere; }
+  .draft, .suggest { display: flex; flex-wrap: wrap; gap: 8px; min-height: 8px; }
+  .add-row { display: flex; gap: 8px; margin: 14px 0; }
+  .add-row button, .actions button { border-radius: 10px; padding: 10px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  .hint { color: var(--muted); font-size: .85rem; margin: 4px 0 8px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .actions .primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .suggest .tag { cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Drive Tags</h1>
+    <button id="account-btn" class="avatar" aria-label="Your account">·</button>
+  </header>
+
+  <div id="welcome" class="welcome" hidden>
+    <h2>Welcome to Drive Tags 👋</h2>
+    <p>Add tags like <strong>vintage</strong> or <strong>pattern</strong> to your Google Drive files, then find them in seconds, on your phone or computer.</p>
+    <p><strong>Your files and tags are private.</strong> Only you can see them, not even the person who shared this app with you. The app can only look at your files. It can't change or delete anything.</p>
+    <p>Tip: in the Tags tab you can group tags into categories, like <strong>Brand</strong> or <strong>Garment type</strong>.</p>
+    <button id="welcome-ok" class="primary-btn">Got it</button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-files" role="tab" aria-selected="true">Files</button>
+    <button id="tab-tags" role="tab" aria-selected="false">Tags</button>
+  </div>
+
+  <section id="view-files">
+    <input id="q" type="search" placeholder="Search file names or tags" autocomplete="off">
+    <div id="filter" class="filter" hidden></div>
+    <p id="status" class="status"></p>
+    <ul id="files" class="files"></ul>
+  </section>
+
+  <section id="view-tags" hidden>
+    <div class="tags-head">
+      <p id="tags-status" class="status"></p>
+      <button id="manage-cats" class="link">Categories</button>
+    </div>
+    <div id="tags" class="tag-list"></div>
+    <div id="tag-bar" class="tag-bar" hidden>
+      <button id="clear-selected" class="link">Clear</button>
+      <button id="show-selected" class="primary-btn">Show files</button>
+    </div>
+  </section>
+</div>
+
+<div id="scrim" hidden></div>
+<div id="account-sheet" role="dialog" aria-modal="true" aria-labelledby="acct-title" hidden>
+  <h2 id="acct-title">Your account</h2>
+  <p class="acct-email">Signed in as <strong id="acct-email">your Google account</strong></p>
+  <p class="hint">Your files and tags are private to this account. The app can look at your Drive but can't change or delete anything.</p>
+  <div class="acct-actions">
+    <a class="btn" href="https://myaccount.google.com/connections" target="_blank" rel="noopener">Remove app access</a>
+  </div>
+  <div class="actions"><button id="acct-close">Close</button></div>
+</div>
+<div id="cat-sheet" role="dialog" aria-modal="true" aria-labelledby="cat-title" hidden>
+  <h2 id="cat-title">Categories</h2>
+  <div id="cat-list" class="cat-list"></div>
+  <div class="add-row">
+    <input id="new-cat-name" type="text" placeholder="New category, e.g. Brand" autocomplete="off">
+    <button id="add-cat">Add</button>
+  </div>
+  <p class="sub" id="assign-title">Put each tag in a category</p>
+  <div id="assign" class="assign"></div>
+  <div class="actions"><button id="cat-close" class="primary">Done</button></div>
+</div>
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+  <h2 id="sheet-title"></h2>
+  <div id="draft" class="draft"></div>
+  <div class="add-row">
+    <input id="new-tag" type="text" placeholder="New tag, e.g. gucci" autocomplete="off" autocapitalize="off">
+    <select id="new-cat" aria-label="Category for new tags"></select>
+    <button id="add-btn">Add</button>
+  </div>
+  <p class="hint" id="suggest-hint">Tap a tag you already use:</p>
+  <div id="suggest" class="suggest"></div>
+  <div class="actions">
+    <button id="cancel">Cancel</button>
+    <button id="save" class="primary">Save tags</button>
+  </div>
+</div>
+
+<script>
+const state = { files: [], tags: [], cats: [], tagCat: {}, filterTags: [], selected: [], editing: null, draft: [], newCats: {}, lastCat: '' };
+let searchTimer, reqId = 0;
+const $ = s => document.querySelector(s);
+
+function run(fn, ...args) {
+  return new Promise((resolve, reject) =>
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args));
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function hue(t) { let h = 7; for (const c of t) h = (h * 31 + c.codePointAt(0)) % 360; return h; }
+/* Tags in the same category share a colour; tags with no category get their own. */
+function catOf(t) { return state.tagCat[t] || state.newCats[t] || ''; }
+function hueFor(t) { const c = catOf(t); return c ? hue(c) : hue(t); }
+function tagBtn(t, attrs = '', extra = '') {
+  return `<button class="tag" style="--h:${hueFor(t)}" ${attrs}>${esc(t)}${extra}</button>`;
+}
+/** Categories in order, each with its tags, plus "Other" for the rest. */
+function grouped(tagNames) {
+  const groups = state.cats.map(c => ({ name: c, tags: tagNames.filter(t => catOf(t) === c) }));
+  const other = tagNames.filter(t => !state.cats.includes(catOf(t)));
+  if (other.length || !state.cats.length) groups.push({ name: state.cats.length ? 'Other' : '', tags: other, other: true });
+  return groups;
+}
+function fmt(ms) { return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' }); }
+function norm(t) { return t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, ' '); }
+function setStatus(msg) { $('#status').textContent = msg; }
+
+/* ---------- Files view ---------- */
+const thumbCache = {};
+
+function renderFiles() {
+  $('#files').innerHTML = state.files.map((f, i) => `
+    <li class="file">
+      <a class="thumb" href="${esc(f.url)}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
+        <span class="thumb-fallback">${esc(f.type)}</span>
+        <img alt="" loading="lazy" data-id="${esc(f.id)}"
+             src="${esc(thumbCache[f.id] || 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(f.id) + '&sz=w480')}">
+      </a>
+      <div class="file-body">
+        <a class="name" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a>
+        <div class="meta">${esc(f.type)} · ${fmt(f.modified)}</div>
+        <div class="file-tags">
+          ${f.tags.map(t => tagBtn(t, `data-tag="${esc(t)}" aria-label="Filter by ${esc(t)}"`)).join('')}
+          <button class="edit" data-i="${i}">${f.tags.length ? 'Edit tags' : 'Add tags'}</button>
+        </div>
+      </div>
+    </li>`).join('');
+  document.querySelectorAll('#files img').forEach(img =>
+    img.addEventListener('error', thumbFallback, { once: true }));
+}
+
+/* If the quick thumbnail link can't load (e.g. on iPhone), ask the script for it instead. */
+async function thumbFallback(e) {
+  const img = e.target, id = img.dataset.id;
+  img.hidden = true;
+  try {
+    const data = await run('getThumbnail', id);
+    if (data) { thumbCache[id] = data; img.src = data; img.hidden = false; }
+  } catch (err) { /* keep the text placeholder */ }
+}
+
+function renderFilter() {
+  const el = $('#filter');
+  if (!state.filterTags.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<span>Files tagged</span>
+    ${state.filterTags.map(t => tagBtn(t, `data-unfilter="${esc(t)}" aria-label="Remove ${esc(t)} from filter"`, '<span class="x" aria-hidden="true">×</span>')).join('')}
+    <button class="link" id="more-tags">+ Add tag</button>
+    <button class="link" id="clear">Clear</button>`;
+}
+
+/** Search. If tags are selected, the search box only looks inside those tagged files. */
+async function loadSearch() {
+  const q = $('#q').value.trim(), tags = state.filterTags.slice(), my = ++reqId;
+  renderFilter();
+  $('#q').placeholder = tags.length ? 'Search within these tags' : 'Search file names or tags';
+  setStatus(tags.length && !q ? 'Loading…' : 'Searching…');
+  try {
+    const files = await run('searchFiles', q, tags);
+    if (my !== reqId) return;
+    state.files = files; renderFiles();
+    const n = files.length, count = `${n} ${tags.length ? 'file' : 'result'}${n > 1 ? 's' : ''}`;
+    if (tags.length) {
+      setStatus(n ? count : q ? 'None of these tagged files match that word.'
+        : 'No file matches this combination. Remove a tag to widen the search.');
+    } else {
+      setStatus(n ? (q ? count : 'Files changed in the last 30 days')
+        : (q ? 'No files match that. Try another word.' : 'No recent files. Search by name to find older ones.'));
+    }
+  } catch (e) { if (my === reqId) setStatus('Couldn’t load files: ' + e.message); }
+}
+
+/** Filter by these tags (keeps whatever is typed in the search box). */
+function showTags(tags) {
+  state.filterTags = tags.slice();
+  switchTab('files');
+  loadSearch();
+}
+
+/* ---------- Tags view ---------- */
+async function loadTags() {
+  try {
+    const [tags, cats] = await Promise.all([run('getTagCounts'), run('getCategories')]);
+    state.tags = tags; state.cats = cats.list; state.tagCat = cats.tagCat;
+    renderTags(); renderFiles(); renderFilter();
+    if (!$('#cat-sheet').hidden) renderCatSheet();
+  } catch (e) { $('#tags-status').textContent = 'Couldn’t load tags: ' + e.message; }
+}
+function renderTags() {
+  state.selected = state.selected.filter(t => state.tags.some(x => x.tag === t));
+  const counts = Object.fromEntries(state.tags.map(x => [x.tag, x.count]));
+  $('#tags-status').textContent = state.tags.length
+    ? 'Tap tags to filter.'
+    : 'No tags yet. Go to Files, pick a file and tap Add tags.';
+  $('#tags').innerHTML = grouped(state.tags.map(x => x.tag)).map(g => `
+    <div class="group">
+      ${g.name ? `<h3>${esc(g.name)}</h3>` : ''}
+      <div class="tag-list">
+        ${g.tags.length ? g.tags.map(t => `
+          <button class="tag-row" data-tag="${esc(t)}" aria-pressed="${state.selected.includes(t)}">
+            <span class="tag" style="--h:${hueFor(t)}">${esc(t)}</span>
+            ${counts[t]} file${counts[t] > 1 ? 's' : ''}
+          </button>`).join('') : '<span class="group-empty">No tags in this category yet.</span>'}
+      </div>
+    </div>`).join('');
+  const n = state.selected.length;
+  $('#tag-bar').hidden = !n;
+  $('#show-selected').textContent = n > 1 ? `Show files (${n} tags)` : 'Show files';
+}
+
+/* ---------- Categories sheet ---------- */
+function openCats() { renderCatSheet(); $('#scrim').hidden = $('#cat-sheet').hidden = false; }
+function closeCats() { $('#cat-sheet').hidden = true; if ($('#sheet').hidden && $('#account-sheet').hidden) $('#scrim').hidden = true; }
+function catOptions(selected, emptyLabel) {
+  return `<option value="">${emptyLabel}</option>` +
+    state.cats.map(c => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
+}
+function renderCatSheet() {
+  $('#cat-list').innerHTML = state.cats.length
+    ? state.cats.map(c => `<span class="cat-chip" style="--h:${hue(c)}">${esc(c)}
+        <button data-delcat="${esc(c)}" aria-label="Delete category ${esc(c)}">×</button></span>`).join('')
+    : '<span class="group-empty">No categories yet. Add one below, e.g. Brand or Garment type.</span>';
+  const names = state.tags.map(x => x.tag);
+  $('#assign-title').hidden = !(names.length && state.cats.length);
+  $('#assign').innerHTML = state.cats.length ? names.map(t => `
+    <div class="assign-row">
+      <span class="tag" style="--h:${hueFor(t)}">${esc(t)}</span>
+      <select data-assign="${esc(t)}" aria-label="Category for ${esc(t)}">${catOptions(catOf(t), 'Other')}</select>
+    </div>`).join('') : '';
+}
+async function saveCatList(list) {
+  try {
+    const cats = await run('saveCategoryList', list);
+    state.cats = cats.list; state.tagCat = cats.tagCat;
+    renderCatSheet(); renderTags(); renderFiles(); renderFilter();
+  } catch (e) { alert('Couldn’t save categories: ' + e.message); }
+}
+
+function switchTab(name) {
+  const files = name === 'files';
+  $('#tab-files').setAttribute('aria-selected', files);
+  $('#tab-tags').setAttribute('aria-selected', !files);
+  $('#view-files').hidden = !files;
+  $('#view-tags').hidden = files;
+  if (!files) loadTags();
+}
+
+/* ---------- Tag editor sheet ---------- */
+function openSheet(i) {
+  state.editing = i;
+  state.draft = state.files[i].tags.slice();
+  $('#sheet-title').textContent = state.files[i].name;
+  $('#new-tag').value = '';
+  state.newCats = {};
+  $('#new-cat').innerHTML = catOptions(state.lastCat, 'No category');
+  $('#new-cat').hidden = !state.cats.length;
+  renderDraft();
+  $('#scrim').hidden = $('#sheet').hidden = false;
+  $('#new-tag').focus();
+}
+function closeSheet() { $('#scrim').hidden = $('#sheet').hidden = true; state.editing = null; }
+
+function renderDraft() {
+  $('#draft').innerHTML = state.draft.length
+    ? state.draft.map(t => tagBtn(t, `data-rm="${esc(t)}" aria-label="Remove ${esc(t)}"`, '<span class="x" aria-hidden="true">×</span>')).join('')
+    : '<span class="hint">No tags yet.</span>';
+  const typed = norm($('#new-tag').value);
+  const options = state.tags.map(x => x.tag)
+    .filter(t => !state.draft.includes(t) && (!typed || t.includes(typed)));
+  $('#suggest-hint').hidden = !options.length;
+  $('#suggest').innerHTML = grouped(options).filter(g => g.tags.length).map(g =>
+    (g.name ? `<p class="sub">${esc(g.name)}</p>` : '') +
+    g.tags.map(t => tagBtn(t, `data-add="${esc(t)}"`)).join('')).join('');
+}
+
+function addFromInput() {
+  const cat = $('#new-cat').value;
+  state.lastCat = cat;
+  $('#new-tag').value.split(',').map(norm).filter(Boolean).forEach(t => {
+    if (!state.draft.includes(t)) state.draft.push(t);
+    if (cat && !state.tagCat[t]) state.newCats[t] = cat;
+  });
+  $('#new-tag').value = '';
+  renderDraft();
+}
+
+async function save() {
+  addFromInput();
+  const i = state.editing, btn = $('#save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    state.files[i].tags = await run('setTags', state.files[i].id, state.draft, state.newCats);
+    Object.assign(state.tagCat, state.newCats); state.newCats = {};
+    renderFiles(); closeSheet(); loadTags();
+  } catch (e) { alert('Couldn’t save tags: ' + e.message); }
+  btn.disabled = false; btn.textContent = 'Save tags';
+}
+
+/* ---------- Wiring ---------- */
+$('#tab-files').onclick = () => switchTab('files');
+$('#tab-tags').onclick = () => switchTab('tags');
+$('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadSearch, 400); });
+$('#files').addEventListener('click', e => {
+  const edit = e.target.closest('.edit'); if (edit) return openSheet(+edit.dataset.i);
+  const t = e.target.closest('[data-tag]'); if (!t) return;
+  const tag = t.dataset.tag;
+  showTags(state.filterTags.includes(tag) ? state.filterTags : state.filterTags.concat(tag));
+});
+$('#filter').addEventListener('click', e => {
+  if (e.target.closest('#clear')) { state.filterTags = []; return loadSearch(); }
+  if (e.target.closest('#more-tags')) { state.selected = state.filterTags.slice(); return switchTab('tags'); }
+  const t = e.target.closest('[data-unfilter]');
+  if (t) showTags(state.filterTags.filter(x => x !== t.dataset.unfilter));
+});
+$('#tags').addEventListener('click', e => {
+  const t = e.target.closest('[data-tag]'); if (!t) return;
+  const tag = t.dataset.tag;
+  state.selected = state.selected.includes(tag) ? state.selected.filter(x => x !== tag) : state.selected.concat(tag);
+  renderTags();
+});
+$('#show-selected').onclick = () => showTags(state.selected);
+$('#clear-selected').onclick = () => { state.selected = []; renderTags(); };
+$('#draft').addEventListener('click', e => {
+  const t = e.target.closest('[data-rm]'); if (!t) return;
+  state.draft = state.draft.filter(x => x !== t.dataset.rm); renderDraft();
+});
+$('#suggest').addEventListener('click', e => {
+  const t = e.target.closest('[data-add]'); if (!t) return;
+  state.draft.push(t.dataset.add); $('#new-tag').value = ''; renderDraft();
+});
+$('#new-tag').addEventListener('input', renderDraft);
+$('#new-tag').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addFromInput(); } });
+$('#add-btn').onclick = addFromInput;
+$('#save').onclick = save;
+$('#cancel').onclick = closeSheet;
+$('#scrim').onclick = () => { closeSheet(); closeAccount(); closeCats(); };
+$('#manage-cats').onclick = openCats;
+$('#cat-close').onclick = closeCats;
+$('#add-cat').onclick = () => {
+  const name = $('#new-cat-name').value.trim();
+  if (!name) return;
+  $('#new-cat-name').value = '';
+  if (!state.cats.includes(name)) saveCatList(state.cats.concat(name));
+};
+$('#new-cat-name').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#add-cat').click(); } });
+$('#cat-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-delcat]'); if (!b) return;
+  if (confirm(`Delete the category "${b.dataset.delcat}"? Its tags stay, they just move to Other.`))
+    saveCatList(state.cats.filter(c => c !== b.dataset.delcat));
+});
+$('#assign').addEventListener('change', async e => {
+  const sel = e.target.closest('[data-assign]'); if (!sel) return;
+  const tag = sel.dataset.assign, cat = sel.value;
+  if (cat) state.tagCat[tag] = cat; else delete state.tagCat[tag];
+  renderCatSheet(); renderTags(); renderFiles(); renderFilter();
+  try { await run('setTagCategory', tag, cat); } catch (err) { alert('Couldn’t save: ' + err.message); loadTags(); }
+});
+
+/* ---------- Account ---------- */
+function openAccount() { $('#scrim').hidden = $('#account-sheet').hidden = false; }
+function closeAccount() { $('#account-sheet').hidden = true; if ($('#sheet').hidden && $('#cat-sheet').hidden) $('#scrim').hidden = true; }
+async function loadMe() {
+  try {
+    const me = await run('getMe');
+    $('#account-btn').textContent = (me.email || '?').charAt(0).toUpperCase();
+    $('#account-btn').setAttribute('aria-label', 'Your account' + (me.email ? ': ' + me.email : ''));
+    if (me.email) $('#acct-email').textContent = me.email;
+    $('#welcome').hidden = me.welcomed;
+  } catch (e) { /* app still works without this */ }
+}
+$('#account-btn').onclick = openAccount;
+$('#acct-close').onclick = closeAccount;
+$('#welcome-ok').onclick = () => { $('#welcome').hidden = true; run('dismissWelcome').catch(() => {}); };
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#sheet').hidden) closeSheet(); else if (!$('#cat-sheet').hidden) closeCats(); else closeAccount();
+});
+
+loadMe();
+loadSearch();
+loadTags();
+</script>
+</body>
+</html>
