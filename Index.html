@@ -9,12 +9,14 @@
     --bg: #E9EEF3; --panel: #FFFFFF; --ink: #1C2A38; --muted: #5C6B7A;
     --line: #D3DCE5; --accent: #24558F; --accent-ink: #FFFFFF;
     --tag-l: 90%; --tag-s: 62%; --tag-fl: 26%; --tag-fs: 50%;
+    --star: #E2A400; --star-bg: #FFF6D6; --star-ink: #7A5800; --danger: #B3261E;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #141B22; --panel: #1D2630; --ink: #E4EAF0; --muted: #93A2B1;
       --line: #2E3A46; --accent: #7FB0E8; --accent-ink: #0E1822;
       --tag-l: 27%; --tag-s: 35%; --tag-fl: 86%; --tag-fs: 70%;
+      --star: #F5C542; --star-bg: #3A3016; --star-ink: #F5D77A; --danger: #F2B8B5;
     }
   }
   * { box-sizing: border-box; }
@@ -102,6 +104,23 @@
   .tag-list { display: flex; flex-wrap: wrap; gap: 10px; }
   .tag-row { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 8px 8px; color: var(--muted); font-size: .85rem; }
 
+  .search-row { display: flex; gap: 8px; }
+  .search-row input { flex: 1; min-width: 0; }
+  .star-filter {
+    flex: none; border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+    border-radius: 10px; padding: 0 14px; font-weight: 600;
+  }
+  .star-filter[aria-pressed="true"] { color: var(--star-ink); border-color: var(--star); background: var(--star-bg); }
+  .file-head { display: flex; gap: 8px; align-items: flex-start; }
+  .file-head .name { flex: 1; min-width: 0; }
+  .star {
+    flex: none; border: 0; background: none; padding: 0 2px; margin-top: -3px;
+    font-size: 1.45rem; line-height: 1; color: var(--line);
+  }
+  .star[aria-pressed="true"] { color: var(--star); }
+  .tag.not { text-decoration: line-through; text-decoration-thickness: 2px; }
+  .not-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--danger); }
+  .tag-row[data-state="exclude"] { border-color: var(--danger); border-style: dashed; color: var(--danger); }
   .tag-row[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--ink); }
   .filter { flex-wrap: wrap; }
   .tag-bar {
@@ -162,7 +181,10 @@
   </div>
 
   <section id="view-files">
-    <input id="q" type="search" placeholder="Search file names or tags" autocomplete="off">
+    <div class="search-row">
+      <input id="q" type="search" placeholder="Search file names or tags" autocomplete="off">
+      <button id="star-filter" class="star-filter" aria-pressed="false" aria-label="Show starred files only">★ Starred</button>
+    </div>
     <div id="filter" class="filter" hidden></div>
     <p id="status" class="status"></p>
     <ul id="files" class="files"></ul>
@@ -219,7 +241,7 @@
 </div>
 
 <script>
-const state = { files: [], tags: [], cats: [], tagCat: {}, filterTags: [], selected: [], editing: null, draft: [], newCats: {}, lastCat: '' };
+const state = { files: [], tags: [], cats: [], tagCat: {}, filterTags: [], excludeTags: [], starredOnly: false, selected: [], selectedEx: [], editing: null, draft: [], newCats: {}, lastCat: '' };
 let searchTimer, reqId = 0;
 const $ = s => document.querySelector(s);
 
@@ -260,7 +282,10 @@ function renderFiles() {
              src="${esc(thumbCache[f.id] || 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(f.id) + '&sz=w480')}">
       </a>
       <div class="file-body">
-        <a class="name" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a>
+        <div class="file-head">
+          <a class="name" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a>
+          <button class="star" data-star="${i}" aria-pressed="${!!f.starred}" aria-label="${f.starred ? 'Unstar' : 'Star'} this file">${f.starred ? '★' : '☆'}</button>
+        </div>
         <div class="meta">${esc(f.type)} · ${fmt(f.modified)}</div>
         <div class="file-tags">
           ${f.tags.map(t => tagBtn(t, `data-tag="${esc(t)}" aria-label="Filter by ${esc(t)}"`)).join('')}
@@ -282,42 +307,63 @@ async function thumbFallback(e) {
   } catch (err) { /* keep the text placeholder */ }
 }
 
+function hasTagFilter() { return state.filterTags.length || state.excludeTags.length; }
+
 function renderFilter() {
   const el = $('#filter');
-  if (!state.filterTags.length) { el.hidden = true; return; }
+  $('#star-filter').setAttribute('aria-pressed', state.starredOnly);
+  if (!hasTagFilter()) { el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = `<span>Files tagged</span>
-    ${state.filterTags.map(t => tagBtn(t, `data-unfilter="${esc(t)}" aria-label="Remove ${esc(t)} from filter"`, '<span class="x" aria-hidden="true">×</span>')).join('')}
-    <button class="link" id="more-tags">+ Add tag</button>
-    <button class="link" id="clear">Clear</button>`;
+  const x = '<span class="x" aria-hidden="true">×</span>';
+  el.innerHTML = (state.filterTags.length ? '<span>Tagged</span>' +
+      state.filterTags.map(t => tagBtn(t, `data-unfilter="${esc(t)}" aria-label="Remove ${esc(t)} from filter"`, x)).join('') : '') +
+    (state.excludeTags.length ? '<span class="not-label">Not</span>' +
+      state.excludeTags.map(t => tagBtn(t, `data-unexclude="${esc(t)}" aria-label="Stop hiding ${esc(t)}"`, x)
+        .replace('class="tag"', 'class="tag not"')).join('') : '') +
+    `<button class="link" id="more-tags">+ Add tag</button>
+     <button class="link" id="clear">Clear</button>`;
 }
 
-/** Search. If tags are selected, the search box only looks inside those tagged files. */
+/** Search. Tag filters, hidden tags and Starred all narrow the results; the search box searches within them. */
 async function loadSearch() {
-  const q = $('#q').value.trim(), tags = state.filterTags.slice(), my = ++reqId;
+  const q = $('#q').value.trim(), my = ++reqId;
+  const inc = state.filterTags.slice(), exc = state.excludeTags.slice(), star = state.starredOnly;
+  const narrowed = inc.length || star;
   renderFilter();
-  $('#q').placeholder = tags.length ? 'Search within these tags' : 'Search file names or tags';
-  setStatus(tags.length && !q ? 'Loading…' : 'Searching…');
+  $('#q').placeholder = (narrowed || exc.length) ? 'Search within these files' : 'Search file names or tags';
+  setStatus(narrowed && !q ? 'Loading…' : 'Searching…');
   try {
-    const files = await run('searchFiles', q, tags);
+    const files = await run('searchFiles', q, inc, exc, star);
     if (my !== reqId) return;
     state.files = files; renderFiles();
-    const n = files.length, count = `${n} ${tags.length ? 'file' : 'result'}${n > 1 ? 's' : ''}`;
-    if (tags.length) {
-      setStatus(n ? count : q ? 'None of these tagged files match that word.'
-        : 'No file matches this combination. Remove a tag to widen the search.');
+    const n = files.length, count = `${n} file${n > 1 ? 's' : ''}`;
+    if (narrowed) {
+      setStatus(n ? count
+        : q ? 'None of these files match that word.'
+        : star && !inc.length ? 'No starred files yet. Tap ☆ next to a file to star it.'
+        : 'No file matches this combination. Remove a filter to widen the search.');
     } else {
-      setStatus(n ? (q ? count : 'Files changed in the last 30 days')
+      setStatus(n ? (q || exc.length ? count : 'Files changed in the last 30 days')
         : (q ? 'No files match that. Try another word.' : 'No recent files. Search by name to find older ones.'));
     }
   } catch (e) { if (my === reqId) setStatus('Couldn’t load files: ' + e.message); }
 }
 
-/** Filter by these tags (keeps whatever is typed in the search box). */
-function showTags(tags) {
+/** Filter by these tags and hide those (keeps whatever is typed in the search box). */
+function showTags(tags, exclude = state.excludeTags) {
   state.filterTags = tags.slice();
+  state.excludeTags = exclude.filter(t => !tags.includes(t));
   switchTab('files');
   loadSearch();
+}
+
+async function toggleStar(i) {
+  const f = state.files[i], on = !f.starred;
+  f.starred = on;
+  if (!on && state.starredOnly) state.files.splice(i, 1);
+  renderFiles();
+  try { await run('setStar', f.id, on); }
+  catch (e) { alert('Couldn’t save the star: ' + e.message); loadSearch(); }
 }
 
 /* ---------- Tags view ---------- */
@@ -330,23 +376,28 @@ async function loadTags() {
   } catch (e) { $('#tags-status').textContent = 'Couldn’t load tags: ' + e.message; }
 }
 function renderTags() {
-  state.selected = state.selected.filter(t => state.tags.some(x => x.tag === t));
+  const exists = t => state.tags.some(x => x.tag === t);
+  state.selected = state.selected.filter(exists);
+  state.selectedEx = state.selectedEx.filter(exists);
   const counts = Object.fromEntries(state.tags.map(x => [x.tag, x.count]));
   $('#tags-status').textContent = state.tags.length
-    ? 'Tap tags to filter.'
+    ? 'Tap a tag once to show it, twice to hide it, three times to clear.'
     : 'No tags yet. Go to Files, pick a file and tap Add tags.';
   $('#tags').innerHTML = grouped(state.tags.map(x => x.tag)).map(g => `
     <div class="group">
       ${g.name ? `<h3>${esc(g.name)}</h3>` : ''}
       <div class="tag-list">
         ${g.tags.length ? g.tags.map(t => `
-          <button class="tag-row" data-tag="${esc(t)}" aria-pressed="${state.selected.includes(t)}">
-            <span class="tag" style="--h:${hueFor(t)}">${esc(t)}</span>
+          <button class="tag-row" data-tag="${esc(t)}" aria-pressed="${state.selected.includes(t)}"
+                  data-state="${state.selected.includes(t) ? 'include' : state.selectedEx.includes(t) ? 'exclude' : ''}"
+                  aria-label="${esc(t)}${state.selected.includes(t) ? ', showing' : state.selectedEx.includes(t) ? ', hiding' : ''}">
+            ${state.selectedEx.includes(t) ? '<span class="not-label">Not</span>' : ''}
+            <span class="tag${state.selectedEx.includes(t) ? ' not' : ''}" style="--h:${hueFor(t)}">${esc(t)}</span>
             ${counts[t]} file${counts[t] > 1 ? 's' : ''}
           </button>`).join('') : '<span class="group-empty">No tags in this category yet.</span>'}
       </div>
     </div>`).join('');
-  const n = state.selected.length;
+  const n = state.selected.length + state.selectedEx.length;
   $('#tag-bar').hidden = !n;
   $('#show-selected').textContent = n > 1 ? `Show files (${n} tags)` : 'Show files';
 }
@@ -444,25 +495,39 @@ $('#tab-files').onclick = () => switchTab('files');
 $('#tab-tags').onclick = () => switchTab('tags');
 $('#q').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadSearch, 400); });
 $('#files').addEventListener('click', e => {
+  const sb = e.target.closest('[data-star]'); if (sb) return toggleStar(+sb.dataset.star);
   const edit = e.target.closest('.edit'); if (edit) return openSheet(+edit.dataset.i);
   const t = e.target.closest('[data-tag]'); if (!t) return;
   const tag = t.dataset.tag;
   showTags(state.filterTags.includes(tag) ? state.filterTags : state.filterTags.concat(tag));
 });
 $('#filter').addEventListener('click', e => {
-  if (e.target.closest('#clear')) { state.filterTags = []; return loadSearch(); }
-  if (e.target.closest('#more-tags')) { state.selected = state.filterTags.slice(); return switchTab('tags'); }
+  if (e.target.closest('#clear')) { state.filterTags = []; state.excludeTags = []; return loadSearch(); }
+  if (e.target.closest('#more-tags')) {
+    state.selected = state.filterTags.slice(); state.selectedEx = state.excludeTags.slice();
+    return switchTab('tags');
+  }
+  const ex = e.target.closest('[data-unexclude]');
+  if (ex) { state.excludeTags = state.excludeTags.filter(x => x !== ex.dataset.unexclude); return loadSearch(); }
   const t = e.target.closest('[data-unfilter]');
   if (t) showTags(state.filterTags.filter(x => x !== t.dataset.unfilter));
 });
 $('#tags').addEventListener('click', e => {
   const t = e.target.closest('[data-tag]'); if (!t) return;
   const tag = t.dataset.tag;
-  state.selected = state.selected.includes(tag) ? state.selected.filter(x => x !== tag) : state.selected.concat(tag);
+  if (state.selected.includes(tag)) {          // showing -> hiding
+    state.selected = state.selected.filter(x => x !== tag);
+    state.selectedEx = state.selectedEx.concat(tag);
+  } else if (state.selectedEx.includes(tag)) { // hiding -> off
+    state.selectedEx = state.selectedEx.filter(x => x !== tag);
+  } else {                                     // off -> showing
+    state.selected = state.selected.concat(tag);
+  }
   renderTags();
 });
-$('#show-selected').onclick = () => showTags(state.selected);
-$('#clear-selected').onclick = () => { state.selected = []; renderTags(); };
+$('#show-selected').onclick = () => showTags(state.selected, state.selectedEx);
+$('#clear-selected').onclick = () => { state.selected = []; state.selectedEx = []; renderTags(); };
+$('#star-filter').onclick = () => { state.starredOnly = !state.starredOnly; loadSearch(); };
 $('#draft').addEventListener('click', e => {
   const t = e.target.closest('[data-rm]'); if (!t) return;
   state.draft = state.draft.filter(x => x !== t.dataset.rm); renderDraft();

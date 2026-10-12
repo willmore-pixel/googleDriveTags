@@ -8,6 +8,7 @@ const MAX_RESULTS = 40;
 const PREFIX = 't:';      // t:<fileId>  -> ["tag", ...]
 const CAT_PREFIX = 'c:';  // c:<tag>     -> "Category"
 const CAT_LIST = 'cats';  // cats        -> ["Brand", "Garment type", ...]
+const STARS = 'stars';    // stars       -> ["fileId", ...]
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
@@ -30,6 +31,10 @@ function readAll_() {
     }
   });
   return map;
+}
+
+function readStars_() {
+  try { return JSON.parse(store_().getProperty(STARS) || '[]'); } catch (e) { return []; }
 }
 
 function cleanTags_(tags) {
@@ -62,8 +67,9 @@ function niceType_(mime) {
   return 'File';
 }
 
-function fileInfo_(file, tags) {
+function fileInfo_(file, tags, stars) {
   return {
+    starred: !!(stars && stars.indexOf(file.getId()) !== -1),
     id: file.getId(),
     name: file.getName(),
     url: file.getUrl(),
@@ -85,27 +91,49 @@ function tryGet_(id) {
 /* ---------- functions called from the app ---------- */
 
 /**
- * Search by file name and tags. Several words ("vintage top", "vintage+top",
- * "vintage, top") only match files where EVERY word is in the name or a tag.
- * Empty text = files changed in the last 30 days.
- * filterTags (optional) = only search within files that have these tags.
+ * Search files.
+ *  text        words typed in the search box; every word must match the file name or a tag
+ *              ("vintage top", "vintage+top" and "vintage, top" all work)
+ *  include     tags to filter by (same category = either one, different categories = all)
+ *  exclude     hide files that have ANY of these tags
+ *  starredOnly only starred files
+ * With nothing at all: files changed in the last 30 days.
  */
-function searchFiles(text, filterTags) {
+function searchFiles(text, include, exclude, starredOnly) {
+  include = include || [];
+  exclude = exclude || [];
   const map = readAll_();
+  const stars = readStars_();
   const words = (text || '').toLowerCase().split(/[\s,+]+/)
     .map(function (w) { return w.replace(/^#+/, ''); })
     .filter(Boolean);
 
-  // Tags selected: only search inside the files that match those tags.
-  if (filterTags && filterTags.length) {
-    return getFilesByTags(filterTags).filter(function (f) {
-      const name = f.name.toLowerCase();
-      return words.every(function (w) {
-        return name.indexOf(w) !== -1 || f.tags.some(function (t) { return t.indexOf(w) !== -1; });
-      });
+  const tagsOf = function (id) { return map[id] || []; };
+  const inTags = function (tags, w) { return tags.some(function (t) { return t.indexOf(w) !== -1; }); };
+  const wordsOk = function (name, tags) {
+    name = name.toLowerCase();
+    return words.every(function (w) { return name.indexOf(w) !== -1 || inTags(tags, w); });
+  };
+  const notExcluded = function (id) {
+    return !tagsOf(id).some(function (t) { return exclude.indexOf(t) !== -1; });
+  };
+
+  const out = [];
+
+  // Tag filter or starred: look only at those files.
+  if (include.length || starredOnly) {
+    const match = includeMatcher_(include);
+    let ids = include.length ? Object.keys(map).filter(function (id) { return match(map[id]); }) : stars.slice();
+    if (starredOnly) ids = ids.filter(function (id) { return stars.indexOf(id) !== -1; });
+    ids.filter(notExcluded).forEach(function (id) {
+      const f = tryGet_(id);
+      if (f && wordsOk(f.getName(), tagsOf(id))) out.push(fileInfo_(f, map[id], stars));
     });
+    out.sort(function (a, b) { return b.modified - a.modified; });
+    return out;
   }
 
+  // Otherwise search the whole Drive by name...
   let q;
   if (words.length) {
     q = words.map(function (w) {
@@ -115,34 +143,53 @@ function searchFiles(text, filterTags) {
     const since = new Date(Date.now() - 30 * 864e5).toISOString();
     q = "modifiedDate > '" + since + "' and trashed = false";
   }
-
-  const out = [];
   const have = {};
   const it = DriveApp.searchFiles(q);
   while (it.hasNext() && out.length < MAX_RESULTS) {
     const f = it.next();
     have[f.getId()] = true;
-    out.push(fileInfo_(f, map[f.getId()]));
+    if (notExcluded(f.getId())) out.push(fileInfo_(f, map[f.getId()], stars));
   }
 
+  // ...plus tagged files whose tags match the words.
   if (words.length) {
-    const inTags = function (tags, w) {
-      return tags.some(function (t) { return t.indexOf(w) !== -1; });
-    };
     Object.keys(map).forEach(function (id) {
-      if (have[id]) return;
-      const tags = map[id];
-      if (!words.some(function (w) { return inTags(tags, w); })) return;
+      if (have[id] || !notExcluded(id)) return;
+      if (!words.some(function (w) { return inTags(map[id], w); })) return;
       const f = tryGet_(id);
-      if (!f) return;
-      const name = f.getName().toLowerCase();
-      const all = words.every(function (w) { return inTags(tags, w) || name.indexOf(w) !== -1; });
-      if (all) out.push(fileInfo_(f, tags));
+      if (f && wordsOk(f.getName(), map[id])) out.push(fileInfo_(f, map[id], stars));
     });
   }
 
   out.sort(function (a, b) { return b.modified - a.modified; });
   return out;
+}
+
+/**
+ * Returns a test for a file's tag list. Tags in the SAME category match either one
+ * (gucci OR chanel); different categories must all match (gucci AND dress).
+ * Tags with no category must each match.
+ */
+function includeMatcher_(tags) {
+  const tagCat = getCategories().tagCat;
+  const groups = {};
+  tags.forEach(function (t) {
+    const g = tagCat[t] ? 'cat:' + tagCat[t] : 'tag:' + t;
+    (groups[g] = groups[g] || []).push(t);
+  });
+  return function (fileTags) {
+    return Object.keys(groups).every(function (g) {
+      return groups[g].some(function (t) { return fileTags.indexOf(t) !== -1; });
+    });
+  };
+}
+
+/** Star or unstar a file. */
+function setStar(id, on) {
+  const stars = readStars_().filter(function (x) { return x !== id; });
+  if (on) stars.push(id);
+  store_().setProperty(STARS, JSON.stringify(stars));
+  return on;
 }
 
 /**
@@ -210,35 +257,9 @@ function getTagCounts() {
   });
 }
 
-/** Every file that has a given tag. */
-function getFilesByTag(tag) {
-  return getFilesByTags([tag]);
-}
-
-/**
- * Files matching the chosen tags. Tags in the SAME category match either one
- * (gucci OR chanel); different categories must all match (gucci AND dress).
- * Tags with no category must each match.
- */
+/** Files matching these tags (kept for older versions of the page). */
 function getFilesByTags(tags) {
-  const map = readAll_();
-  const tagCat = getCategories().tagCat;
-  const groups = {};
-  tags.forEach(function (t) {
-    const g = tagCat[t] ? 'cat:' + tagCat[t] : 'tag:' + t;
-    (groups[g] = groups[g] || []).push(t);
-  });
-  const out = [];
-  Object.keys(map).forEach(function (id) {
-    const ok = Object.keys(groups).every(function (g) {
-      return groups[g].some(function (t) { return map[id].indexOf(t) !== -1; });
-    });
-    if (!ok) return;
-    const f = tryGet_(id);
-    if (f) out.push(fileInfo_(f, map[id]));
-  });
-  out.sort(function (a, b) { return b.modified - a.modified; });
-  return out;
+  return searchFiles('', tags);
 }
 
 /** Thumbnail as an image the app can show directly (used when the quick link fails). */

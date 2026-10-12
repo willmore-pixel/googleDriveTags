@@ -5,7 +5,7 @@ Tag your Google Drive files and find them in seconds, on your phone or computer.
 Drive Tags is a small Google Apps Script web app. You add tags like `vintage`, `gucci` or `dress` to files in your Google Drive, group tags into categories, and search by any combination of tags. It was made for a sewing community to organise patterns, fabric photos and garment references, but it works for any kind of file.
 
 <!-- Add a screenshot: save it in the repo as screenshot.png and remove the comment marks below -->
-[Drive Tags screenshot](screenshot.png)
+<!-- ![Drive Tags screenshot](screenshot.png) -->
 
 ## Features
 
@@ -13,6 +13,8 @@ Drive Tags is a small Google Apps Script web app. You add tags like `vintage`, `
 - **Categories**: group tags (for example *Brand*: gucci, chanel; *Garment type*: top, dress, skirt). Tags in the same category share a colour.
 - **Smart filtering**: pick tags to filter. Tags in the same category match either one (gucci **or** chanel); tags in different categories must all match (gucci **and** dress).
 - **Search**: type several words (`vintage top`) to find files where every word matches a tag or the file name. When tags are selected, the search looks only inside those files.
+- **Exclude tags**: hide files with certain tags, for example dresses but *not* chanel.
+- **Stars**: star your favourite files and show only starred files with one tap.
 - **Large thumbnails** next to each file.
 - **Works on phone and computer**: add it to your home screen and it opens like an app. Tags sync automatically.
 - **Private and read-only**: only you can see your files and tags, and the app cannot change or delete anything in your Drive.
@@ -68,6 +70,8 @@ Your link, home-screen shortcut, tags and categories all stay the same.
 | Tag a file | **Files** tab → **Add tags** → type a tag, optionally pick a category → **Add** → **Save tags** |
 | Create categories | **Tags** tab → **Categories** → add a category, then choose a category for each tag |
 | Filter by tags | **Tags** tab → tap one or more tags → **Show files**, or tap a tag on any file |
+| Hide a tag | **Tags** tab → tap a tag twice so it shows **Not** → **Show files** |
+| Star a file | Tap ☆ next to its name. Tap **★ Starred** next to the search box to see only starred files. |
 | Search | Type in the search box. Several words must all match. |
 | Open a file | Tap its thumbnail or name |
 
